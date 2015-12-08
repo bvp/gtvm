@@ -11,14 +11,12 @@ import (
 const filechunk = 8192 // we settle for 8KB
 
 func checksum(f string) string {
-
 	file, err := os.Open(f)
+	defer file.Close()
 
 	if err != nil {
 		panic(err.Error())
 	}
-
-	defer file.Close()
 
 	// calculate the file size
 	info, _ := file.Stat()
@@ -34,6 +32,5 @@ func checksum(f string) string {
 		io.WriteString(hash, string(buf)) // append into the hash
 	}
 
-	//	fmt.Printf("%s checksum is %x - len: %s\n", file.Name(), hash.Sum(nil), fmt.Sprintf("%x", hash.Sum(nil)))
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }

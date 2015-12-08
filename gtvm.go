@@ -1,35 +1,48 @@
+/*
+GTVM is Golang Tools Version Manager
+Manage Golang versions and LiteIDE versions install/uninstall
+
+
+Basics
+
+All configs, archives, installed tools stored in $HOME/.gtvm in Linux and %USERPROFILE%\.gtvm in Windows
+
+
+*/
 package main
 
 import (
 	"database/sql"
-	"log"
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
-	"runtime"
-	//	"runtime"
+
 	"github.com/PuerkitoBio/goquery"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var (
-	ps                 = string(filepath.Separator)
+const (
 	gtvmDirName        = ".gtvm"
 	golang             = "go"
 	archives           = "archives"
 	liteide            = "liteide"
 	gtvmStorage        = "gtvmStorage.db"
-	goVersions         []goVer
-	liteIDEVersions    []liteIDEVer
-	liteIDEfileList    []liteIDEfile
 	urlSF              = "http://sourceforge.net"
 	urlLiteIDE         = "http://sourceforge.net/projects/liteide/files/"
 	urlLiteIDEDownload = "http://downloads.sourceforge.net/liteide/"
 	urlGoLang          = "https://golang.org/dl/"
-	doc                *goquery.Document
-	err                error
-	db                 *sql.DB
-	stmt               *sql.Stmt
+)
+
+var (
+	ps              = string(filepath.Separator) // Separator
+	goVersions      []goVer                      // Store Go versions info
+	liteIDEVersions []liteIDEVer                 // Store LiteIDE versions info
+	liteIDEfileList []liteIDEfile                // Store LiteIDE files info
+	doc             *goquery.Document
+	err             error
+	db              *sql.DB
+	stmt            *sql.Stmt
 
 	gtvmDir     = ""
 	archivesDir = ""
@@ -49,11 +62,11 @@ func init() {
 	gvmwd, err := os.Stat(gtvmDir)
 
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 	}
 
 	if !gvmwd.IsDir() {
-		log.Println("Go Tools Version Manager working destination is not a directory")
+		fmt.Println("Go Tools Version Manager working destination is not a directory")
 		//		os.Exit(1)
 	}
 
@@ -68,7 +81,6 @@ func init() {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	parseCmdLine()
 
 	//	download("http://downloads.sourceforge.net/liteide/X27.1/liteidex27.1.linux-64-system-qt4.8.tar.bz2", "liteidex27.1.linux-64-system-qt4.8.tar.bz2")

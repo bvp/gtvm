@@ -1,27 +1,27 @@
-// liteideutils
 package main
 
 import (
-	"log"
-	"strings"
-
 	"github.com/PuerkitoBio/goquery"
+	"log"
+	"regexp"
+	"strings"
 )
 
 type liteIDEVer struct {
-	ver        string
-	updated_at string
+	ver       string
+	updatedAt string
 }
 
 type liteIDEfile struct {
-	ver         string
-	osType      string
+	verMajor    string
+	verMinor    string
+	osPlatform  string
 	osArch      string
 	qtType      string
 	qtVer       string
 	fileName    string
 	fileNameURL string
-	updated_at  string
+	updatedAt   string
 }
 
 func cacheLiteIDE() {
@@ -30,6 +30,7 @@ func cacheLiteIDE() {
 }
 
 func liteIDECrawler(url string, ver string, getFileList bool) {
+	var liteideRegex = regexp.MustCompile(`(?P<Prefix>liteidex)(?P<Major>\d+)?(?:\.|-)+(?P<Minor>(?:\d+(?:(\.|-)\d+)?))?(?:\.)?(?P<Platform>windows|linux|macosx)?(?:-)?(?P<Arch>(amd)?\d+)?(?:-)?(?P<Variant>system)?(?:-)?(?P<QtVer>qt\d)?(?:-)?(?P<Variant2>system)?(?P<Ext>7z|zip|tar)?`)
 	src := ""
 	if !getFileList {
 		src = url
@@ -48,30 +49,34 @@ func liteIDECrawler(url string, ver string, getFileList bool) {
 				//				sURL, _ := s.Find("th a").Attr("href")
 				name := strings.TrimSpace(s.Find("th a").Text())
 				sURL := urlLiteIDEDownload + ver + "/" + name
-				updated_at := s.Find("td[headers=files_date_h] abbr").Text()
+				updatedAt := s.Find("td[headers=files_date_h] abbr").Text()
 				if name != "" && name != "Parent folder" {
-					//					fmt.Println(name)
-
 					if getFileList {
-						var osType, osArch, qtType, qtVer string
-						platform := getPlatform(name, ver[1:])
-						if len(platform) == 4 {
-							osType = platform[0]
-							osArch = platform[1]
-							qtType = platform[2]
-							qtVer = platform[3][2:]
-						} else if len(platform) == 2 {
-							osType = platform[0]
-							osArch = platform[1]
+						var verMajor, verMinor, osPlatform, osArch, qtType, qtVer string
+						match := liteideRegex.FindStringSubmatch(name)
+						result := make(map[string]string)
+						for i, name := range liteideRegex.SubexpNames() {
+							result[name] = match[i]
+						}
+						verMajor = result["Major"]
+						verMinor = result["Minor"]
+						osPlatform = result["Platform"]
+						if result["Arch"] == "amd64" {
+							osArch = "64"
+						} else if result["Arch"] == "386" {
+							osArch = "32"
 						} else {
-							osType = platform[0]
+							osArch = result["Arch"]
+						}
+						qtVer = result["QtVer"]
+						if qtType = result["Variant"]; result["Variant2"] != "" {
+							qtType = result["Variant2"]
 						}
 
-						lf := liteIDEfile{ver: ver[1:], osType: osType, osArch: osArch, qtType: qtType, qtVer: qtVer, fileName: name, fileNameURL: sURL, updated_at: updated_at}
-						//						fmt.Printf("%q\n", lf)
+						lf := liteIDEfile{verMajor: verMajor, verMinor: verMinor, osPlatform: osPlatform, osArch: osArch, qtType: qtType, qtVer: qtVer, fileName: name, fileNameURL: sURL, updatedAt: updatedAt}
 						liteIDEfileList = append(liteIDEfileList, lf)
 					} else {
-						lv := liteIDEVer{ver: name, updated_at: updated_at}
+						lv := liteIDEVer{ver: name, updatedAt: updatedAt}
 						liteIDEVersions = append(liteIDEVersions, lv)
 					}
 				}
@@ -83,41 +88,20 @@ func liteIDECrawler(url string, ver string, getFileList bool) {
 func fetchLiteIDEfileList() {
 	tx, txerr := db.Begin()
 	checkErr("In fetchLiteIDEfileList - Begin transaction", txerr)
-	stmt, err = tx.Prepare("insert into liteideCache(ver, osType, osArch, qtType, qtVer, fileName, url, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err = tx.Prepare("insert into liteideCache(ver, osPlatform, osArch, qtType, qtVer, fileName, url, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)")
 	checkErr("In fetchLiteIDEfileList - Prepare statement", err)
 	defer stmt.Close()
 
 	for _, v := range liteIDEVersions {
 		liteIDECrawler(urlLiteIDE, v.ver, true)
 		for _, f := range liteIDEfileList {
-			_, err = stmt.Exec(f.ver, f.osType, f.osArch, f.qtType, f.qtVer, f.fileName, f.fileNameURL, f.updated_at)
+			var ver string
+			if ver = f.verMajor; f.verMinor != "" {
+				ver = f.verMajor + "." + f.verMinor
+			}
+			_, err = stmt.Exec(ver, f.osPlatform, f.osArch, f.qtType, f.qtVer, f.fileName, f.fileNameURL, f.updatedAt)
 			checkErr("In fetchLiteIDEfileList - Exec statement", err)
 		}
 	}
 	tx.Commit()
-}
-
-func getPlatform(s, ver string) []string {
-	platform := ""
-	prefix := ""
-	suffix := ""
-	liteidex := "liteidex"
-
-	prefixes := []string{liteidex + ver + ".", liteidex + ver + "-1" + "."}
-	suffixes := []string{".tar.bz2", ".7z", ".zip"}
-
-	for _, prefix = range prefixes {
-		if strings.HasPrefix(s, prefix) {
-			platform = s[len(prefix):]
-		}
-	}
-	for _, suffix = range suffixes {
-		if strings.HasSuffix(platform, suffix) {
-			platform = platform[:len(platform)-len(suffix)]
-			break
-		}
-	}
-	splitted := strings.Split(platform, "-")
-	//	fmt.Printf("Length %q is %d", splitted, len(splitted))
-	return splitted
 }

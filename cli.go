@@ -1,4 +1,3 @@
-// cli
 package main
 
 import (
@@ -8,92 +7,129 @@ import (
 )
 
 func parseCmdLine() {
+	var gtver latest
 	if len(os.Args) > 1 {
-		//		fmt.Println("Command-line params")
 		args := os.Args[1:]
 		//		fmt.Printf("%q - length %d\n", args, len(args))
 
 		switch strings.ToLower(args[0]) {
 		case "refresh":
-			fmt.Println("Fetch remote version's list")
+			fmt.Println(strFetchRemote)
 			refreshDb()
-		case "ls":
-			if len(args) == 2 {
+		case "installed":
+			if len(args) > 1 {
 				if args[1] == "go" {
 					listInstalled("go")
 				} else if args[1] == "liteide" {
 					listInstalled("liteide")
 				}
-			} else if len(args) == 1 {
+			} else {
 				listInstalled("go")
 				listInstalled("liteide")
 			}
-		case "ls-remote":
-			if len(args) == 2 {
+		case "ls":
+			if len(args) > 1 {
 				if args[1] == "go" {
 					printVersions("go")
 				} else if args[1] == "liteide" {
 					printVersions("liteide")
 				}
-			} else if len(args) == 1 {
+			} else {
 				printVersions("go")
 				printVersions("liteide")
 			}
 		case "fetch":
-			if len(args) == 2 {
+			if len(args) >= 2 {
 				if args[1] == "go" {
-					gtver := getLatest("go")
-					//  fmt.Printf("Version: %s, URL: %s, Filename: %s\n", gtver.ver, gtver.url, gtver.fileName)
-					fmt.Printf("Downloading version: %s\n", gtver.ver)
+					if len(args) >= 3 {
+						gtver = getLatest("go", args[2], "")
+						fmt.Printf(strDownloadingGo, gtver.ver)
+					} else {
+						gtver = getLatest("go", "", "")
+						fmt.Printf(strDownloadingGo, gtver.ver)
+					}
 					download("golang", gtver.url, gtver.fileName)
-					compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
+					// compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
 				} else if args[1] == "liteide" {
-					gtver := getLatest("liteide")
-					fmt.Printf("Downloading version: %s\n", gtver.ver)
+					if len(args) >= 3 {
+						fmt.Printf(strDownloadingLiteIDE, args[2])
+						gtver = getLatest("liteide", args[2], "")
+						if len(args) >= 4 {
+							fmt.Printf(strDownloadingLiteIDEversion, args[2], args[3])
+							gtver = getLatest("liteide", args[2], args[3])
+						}
+					} else {
+						gtver = getLatest("liteide", "", "")
+					}
+					fmt.Printf(strDownloading, gtver.ver)
 					download("liteide", gtver.url, gtver.fileName)
 				} else {
 					usage()
 				}
 			} else if len(args) == 1 {
-				fmt.Println("Please, set 'go' or 'liteide'")
+				fmt.Println(strPleaseSetTool)
 			} else {
 				usage()
 			}
-		case "install":
-			if len(args) == 2 {
+		case "install", "i":
+			if len(args) > 1 {
 				if args[1] == "go" {
-					gtver := getLatest("go")
+					if len(args) >= 3 {
+						gtver = getLatest("go", args[2], "")
+					} else {
+						gtver = getLatest("go", "", "")
+					}
 					//  fmt.Printf("Version: %s, URL: %s, Filename: %s\n", gtver.ver, gtver.url, gtver.fileName)
-					fmt.Printf("Downloading version: %s\n", gtver.ver)
+					fmt.Printf(strDownloadingGo, gtver.ver)
 					download("golang", gtver.url, gtver.fileName)
-					compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
+					// compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
 					extract(gtver.fileName, gtver.ver)
 				} else if args[1] == "liteide" {
-					gtver := getLatest("liteide")
-					fmt.Printf("Downloading version: %s\n", gtver.ver)
+					if len(args) >= 3 {
+						fmt.Printf(strDownloadingLiteIDE, args[2])
+						gtver = getLatest("liteide", args[2], "")
+						if len(args) >= 4 {
+							fmt.Printf(strDownloadingLiteIDEversion, args[2], args[3])
+							gtver = getLatest("liteide", args[2], args[3])
+						}
+					} else {
+						gtver = getLatest("liteide", "", "")
+					}
+					fmt.Printf(strDownloadingInstalling, gtver.ver)
 					download("liteide", gtver.url, gtver.fileName)
 					extract(gtver.fileName, gtver.ver)
 				} else {
 					usage()
 				}
-			} else if len(args) == 1 {
-				fmt.Println("Please, set 'go' or 'liteide'")
 			} else {
+				fmt.Println(strPleaseSetTool)
 				usage()
 			}
-		case "remove":
+		case "uninstall", "u":
 			if len(args) == 3 {
 				if args[1] == "go" {
-					fmt.Println("Remove Golang version", args[2])
+					fmt.Println(strUninstallGo, args[2])
+					errRemove := os.RemoveAll(gtvmDir + ps + "go" + ps + args[2])
+					checkErr("Uninstall go", errRemove)
 				} else if args[1] == "liteide" {
-					fmt.Println("Remove Liteide version", args[2])
+					fmt.Println(strUninstallLiteIDE, args[2])
+					errRemove := os.RemoveAll(gtvmDir + ps + "liteide" + ps + args[2])
+					checkErr("Uninstall liteide", errRemove)
 				} else {
 					usage()
 				}
 			} else if len(args) == 1 {
-				fmt.Println("Please, set 'go' or 'liteide'")
+				fmt.Println(strPleaseSetTool)
 			} else {
 				usage()
+			}
+		case "use":
+			if len(args) > 1 {
+				if args[1] == "go" {
+					if len(args) >= 3 {
+						setGoRoot(args[2])
+					}
+				}
 			}
 		case "archives":
 			listArchives()
@@ -113,7 +149,7 @@ func parseCmdLine() {
 			} else {
 				usage()
 			}
-		case "help":
+		case "help", "h":
 			usage()
 		}
 	} else {

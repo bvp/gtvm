@@ -16,15 +16,14 @@ import (
 
 func extract(filename, ver string) {
 	ext := path.Ext(filename)
-	//	fmt.Println(ext)
 	if ext == ".zip" {
-		//		fmt.Println("zip archive")
+		// if zip archive
 		unzip(archivesDir+ps+filename, gtvmDir, ver)
 	} else if ext == (".bz2") || ext == (".gz") {
-		//		fmt.Println("gz or bz2 archive")
+		// if gz or bz2 archive
 		unGzipBzip2(archivesDir+ps+filename, gtvmDir, ver)
 	} else if ext == ".7z" {
-		fmt.Println("7z archive")
+		fmt.Println("7z archive not allowed")
 	}
 }
 
@@ -63,7 +62,7 @@ func unzip(filename, dest, ver string) {
 		} else if f.Name[:2] == "li" {
 			path = filepath.Join(dest, "./", strings.Replace(f.Name, "liteide", "liteide"+ps+ver, 1))
 		}
-		fmt.Println(path)
+		// fmt.Println(path)
 
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(path, f.Mode())

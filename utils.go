@@ -1,9 +1,9 @@
-// utils
 package main
 
 import (
 	"database/sql"
 	"fmt"
+	"github.com/badgerodon/penv"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,9 +13,11 @@ import (
 )
 
 type latest struct {
-	ver      string
-	url      string
-	fileName string
+	ver        string
+	url        string
+	fileName   string
+	osPlatform string
+	osArch     string
 }
 
 func removeDuplicates(xs *[]string) {
@@ -31,6 +33,7 @@ func removeDuplicates(xs *[]string) {
 	*xs = (*xs)[:j]
 }
 
+// print versions from storage
 func printVersions(t string) {
 	var (
 		msg  string
@@ -93,8 +96,8 @@ func createTables() {
 		--drop table if exists golangCache;
 		--drop table if exists liteideCache;
 		create table if not exists config (id integer not null primary key, name text, gopath text, gobin text);
-		create table if not exists golangCache (ver text, osType text, osArch text, kind text, url text, fileName text, size text, hash text);
-		create table if not exists liteideCache (ver text, osType text, osArch text, qtType text, qtVer text, fileName text, url text, updated_at text);
+		create table if not exists golangCache (ver text, osPlatform text, osArch text, kind text, url text, fileName text, size text, hash text);
+		create table if not exists liteideCache (ver text, osPlatform text, osArch text, qtType text, qtVer text, fileName text, url text, updated_at text);
 		--delete from config;
 		`
 	_, err = db.Exec(sqlStmt)
@@ -106,22 +109,37 @@ func createTables() {
 
 func checkErr(msg string, err error) {
 	if err != nil {
+		log.SetPrefix("ERROR")
 		log.Printf("%s : %s\n", msg, err.Error())
 		os.Exit(1)
 	}
 }
 
+func contains(slice []string, item string) bool {
+	set := make(map[string]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
+
+	_, ok := set[item]
+	return ok
+}
+
 func listArchives() {
-	fmt.Println("Archives listing")
+	fmt.Println(strArchivesListing)
 	files, _ := ioutil.ReadDir(archivesDir)
 	for _, f := range files {
 		fmt.Println(f.Name())
 	}
 }
 
-func listInstalled(gt string) {
-	fmt.Printf("*Installed %s versions\n", gt)
-	var inDir string = ""
+func listInstalled(gt string) []string {
+	var (
+		inDir      string
+		sInstalled []string
+	)
+
+	fmt.Printf(strInstalledVersions, gt)
 	if gt == "go" {
 		inDir = golangDir
 	} else if gt == "liteide" {
@@ -132,17 +150,19 @@ func listInstalled(gt string) {
 		fi, err := os.Stat(inDir + ps + f.Name())
 		checkErr("Getting os.Stat", err)
 		if fi.IsDir() {
-			fmt.Printf("\t%s\n", f.Name())
+			fmt.Printf("\t%s (%s)\n", f.Name(), f.ModTime().Format("2006-01-02 15:04:05"))
+			sInstalled = append(sInstalled, f.Name())
 		}
 	}
+	return sInstalled
 }
 
 func refreshDb() {
 	sqlStmt := `
 		drop table if exists golangCache;
 		drop table if exists liteideCache;
-		create table if not exists golangCache (ver text, osType text, osArch text, kind text, url text, fileName text, size text, hash text);
-		create table if not exists liteideCache (ver text, osType text, osArch text, qtType text, qtVer text, fileName text, url text, updated_at text);
+		create table if not exists golangCache (ver text, osPlatform text, osArch text, kind text, url text, fileName text, size text, hash text);
+		create table if not exists liteideCache (ver text, osPlatform text, osArch text, qtType text, qtVer text, fileName text, url text, updated_at text);
 		`
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
@@ -150,33 +170,33 @@ func refreshDb() {
 		return
 	}
 
-	fmt.Print("Updating Golang cache...\t")
+	fmt.Print(strUpdatingGoCache)
 	cacheGoLang(urlGoLang)
-	fmt.Println("OK")
+	fmt.Println(ok)
 
-	fmt.Print("Updating LiteIDE cache...\t")
+	fmt.Print(strUpdatingLiteIDECache)
 	cacheLiteIDE()
-	fmt.Println("OK")
+	fmt.Println(ok)
 }
 
 func firstStart() {
-	fmt.Printf("This is first start\n")
-	fmt.Printf("* Creating work directory\n")
+	fmt.Printf(strFirstStart)
+	fmt.Printf(strCreateWorkDirs)
 	createWorkDirs()
-	fmt.Printf("* Creating storage\n")
+	fmt.Printf(strCreateStorage)
 	db = getDB()
 	createTables()
 	refreshDb()
 }
 
 func printBanner() {
-	fmt.Println("")
+	fmt.Println()
 	fmt.Println("     //////  //////////  //      //  //      //   ")
 	fmt.Println("  //            //      //      //  ////  ////    ")
 	fmt.Println(" //  ////      //      //      //  //  //  //     ")
 	fmt.Println("//    //      //        //  //    //      //      ")
 	fmt.Println(" //////      //          //      //      //       ")
-	fmt.Println("")
+	fmt.Println()
 	fmt.Println("Golang Tools Version Manager")
 	fmt.Printf("Command line tool for manage Golang & LiteIDE versions\n\n")
 }
@@ -188,20 +208,25 @@ func compareHash(ver, hash string) bool {
 	curArch := re.ReplaceAllString(runtime.GOARCH, "")
 
 	var mhash string
-	stmt, _ := db.Prepare("select hash from golangCache where osType = ? and osArch = ?")
+	var result bool
+	stmt, _ := db.Prepare("select hash from golangCache where osPlatform = ? and osArch = ?")
 	defer stmt.Close()
 	err = stmt.QueryRow(curOS, curArch).Scan(&mhash)
-	//	fmt.Println("Chechsum", mhash, strings.EqualFold(hash, mhash))
-	if strings.EqualFold(hash, mhash) {
-		//		fmt.Println("Checksum is OK")
-		return true
+	fmt.Println("* mhash - '" + mhash + "' and hash - '" + hash + "'")
+	if mhash != "" {
+		if strings.EqualFold(hash, mhash) {
+			result = true
+		} else {
+			fmt.Println("\n" + strChecksumMismatch)
+			result = false
+		}
 	} else {
-		fmt.Println("Checksum missmatch")
-		return false
+		result = true
 	}
+	return result
 }
 
-func getLatest(t string) latest {
+func getLatest(t, ver, qt string) latest {
 	var (
 		verurl latest
 	)
@@ -211,23 +236,71 @@ func getLatest(t string) latest {
 	curArch := re.ReplaceAllString(runtime.GOARCH, "")
 
 	if t == "go" {
-		stmt, err = db.Prepare("select ver, url, fileName from golangCache where osType = ? and osArch = ?")
-		if err != nil {
-			log.Fatal(err)
+		if ver != "" {
+			stmt, err = db.Prepare("SELECT ver, url, fileName, osPlatform, osArch FROM golangCache WHERE osPlatform = ? AND osArch = ? AND ver = ? LIMIT 1")
+			if err != nil {
+				log.Fatal(err)
+			}
+			err = stmt.QueryRow(curOS, curArch, ver).Scan(&verurl.ver, &verurl.url, &verurl.fileName, &verurl.osPlatform, &verurl.osArch)
+			if err != nil {
+				if err.Error() == "sql: no rows in result set" {
+					fmt.Println("Unknown version")
+					os.Exit(0)
+				} else {
+					log.Fatal(err)
+				}
+			}
+		} else {
+			stmt, err = db.Prepare("SELECT ver, url, fileName, osPlatform, osArch FROM golangCache WHERE osPlatform = ? AND osArch = ?  LIMIT 1")
+			if err != nil {
+				log.Fatal(err)
+			}
+			err = stmt.QueryRow(curOS, curArch).Scan(&verurl.ver, &verurl.url, &verurl.fileName, &verurl.osPlatform, &verurl.osArch)
+			if err != nil {
+				if err.Error() == "sql: no rows in result set" {
+					fmt.Println("Unknown version")
+					os.Exit(0)
+				} else {
+					log.Fatal(err)
+				}
+			}
 		}
 	} else if t == "liteide" {
-		// stmt, err = db.Prepare("select ver, url, fileName from liteideCache where osType = ? and osArch = ?")
-		stmt, err = db.Prepare("select ver, url, fileName from liteideCache where osType = ?")
+		if ver != "" {
+			qt = "*"
+			stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer=?")
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else if qt != "" {
+			stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer=?")
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer=?")
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = stmt.QueryRow(curOS, curArch, ver, qt).Scan(&verurl.ver, &verurl.url, &verurl.fileName, &verurl.osPlatform, &verurl.osArch)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-
-	defer stmt.Close()
-	err = stmt.QueryRow(curOS, curArch).Scan(&verurl.ver, &verurl.url, &verurl.fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	return verurl
+}
+
+func setGoRoot(goRoot string) {
+	if contains(listInstalled("go"), goRoot) {
+		err := penv.SetEnv("GOROOT", golangDir+ps+goRoot)
+		checkErr("setGoRoot", err)
+	} else {
+		gtver := getLatest("go", goRoot, "")
+		download("golang", gtver.url, gtver.fileName)
+		// compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
+		fmt.Printf(strInstallGoVersion, goRoot)
+		extract(gtver.fileName, gtver.ver)
+		err := penv.SetEnv("GOROOT", golangDir+ps+goRoot)
+		checkErr("setGoRoot", err)
+	}
 }
