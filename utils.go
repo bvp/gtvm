@@ -66,10 +66,6 @@ func printVersions(t string) {
 	for _, v := range vers {
 		fmt.Printf("- %s\n", v)
 	}
-
-	//	for _, v := range liteIDEVersions {
-	//		fmt.Printf("%q\n", v)
-	//	}
 }
 
 // exists returns whether the given file or directory exists or not

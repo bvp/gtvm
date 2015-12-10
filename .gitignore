@@ -1,6 +1,6 @@
-*.txt
-*.exe
-*~
 gtvm
+*.exe
 
-/.git_/
+# vim backup and swap
+*~
+*.swp

@@ -14,6 +14,7 @@ func usage() {
 	fmt.Printf("  %-40s - %s\n", "uninstall|u <go|liteide [version]>", "Remove tool")
 	fmt.Printf("  %-40s - %s\n", "use <go|liteide [version]> [--default]", "Use tool. Without version - use latest")
 	fmt.Printf("  %-40s - %s\n", "installed [go|liteide]", "Show installed version's list")
+	fmt.Printf("  %-40s - %s\n", "upgrade", "Upgrade tools to new version")
 	fmt.Printf("  %-40s - %s\n", "archives", "List local archives")
 	fmt.Println()
 }

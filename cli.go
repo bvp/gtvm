@@ -10,7 +10,6 @@ func parseCmdLine() {
 	var gtver latest
 	if len(os.Args) > 1 {
 		args := os.Args[1:]
-		//		fmt.Printf("%q - length %d\n", args, len(args))
 
 		switch strings.ToLower(args[0]) {
 		case "refresh":
@@ -79,7 +78,6 @@ func parseCmdLine() {
 					} else {
 						gtver = getLatest("go", "", "")
 					}
-					//  fmt.Printf("Version: %s, URL: %s, Filename: %s\n", gtver.ver, gtver.url, gtver.fileName)
 					fmt.Printf(strDownloadingGo, gtver.ver)
 					download("golang", gtver.url, gtver.fileName)
 					// compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
@@ -133,6 +131,8 @@ func parseCmdLine() {
 			}
 		case "archives":
 			listArchives()
+		case "upgrade":
+			usage()
 		case "config":
 			if len(args) == 2 {
 				//

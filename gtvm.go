@@ -67,11 +67,10 @@ func init() {
 
 	if !gvmwd.IsDir() {
 		fmt.Println("Go Tools Version Manager working destination is not a directory")
-		//		os.Exit(1)
+		os.Exit(1)
 	}
 
 	if _, err = os.Stat(gtvmDir + ps + gtvmStorage); os.IsNotExist(err) {
-		// log.Println("firstStart()")
 		firstStart()
 	} else {
 		//	os.Remove(gtvmDir + ps + gtvmStorage)
@@ -83,18 +82,6 @@ func init() {
 func main() {
 	parseCmdLine()
 
-	//	download("http://downloads.sourceforge.net/liteide/X27.1/liteidex27.1.linux-64-system-qt4.8.tar.bz2", "liteidex27.1.linux-64-system-qt4.8.tar.bz2")
-	//	download("https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz", "go1.4.2.linux-amd64.tar.gz")
-	//	download("http://downloads.sourceforge.net/liteide/X27.1/liteidex27.1.windows.zip", "liteidex27.1.windows.zip")
-	//  checksum("go1.4.2.windows-amd64.zip")
-	//	unzip(gvmDir+ps+archivesDir+ps+"liteidex27.1.windows.zip", gvmDir+ps+liteideDir, "27.1")
-	//unGzipBzip2(gvmDir+ps+archivesDir+ps+"go1.4.2.linux-amd64.tar.gz", gvmDir+ps+goDir, "1.4.2")
-	//unGzipBzip2(gvmDir+ps+archivesDir+ps+"liteidex27.1.linux-64-system-qt4.8.tar.bz2", gvmDir+ps+liteideDir, "27.1")
-
-	//	fmt.Println("Work dir - " + gvmDir)
-	//	listArchives()
-	//	printVersions("go")
-	//	printVersions("liteide")
 	defer db.Close()
 }
 

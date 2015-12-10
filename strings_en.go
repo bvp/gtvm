@@ -2,7 +2,7 @@ package main
 
 const (
 	ok                           string = "OK"
-	strFirstStart                string = "This is first start\n"
+	strFirstStart                string = "This is the first start\n"
 	strCreateWorkDirs            string = "* Creating work directory\n"
 	strCreateStorage             string = "* Creating storage\n"
 	strUpdatingGoCache           string = "Updating Golang cache...\t"
@@ -19,5 +19,5 @@ const (
 	strInstallGoVersion          string = "Install Golang version %s\n"
 	strUninstallGo               string = "Uninstall Golang version"
 	strUninstallLiteIDE          string = "Uninstall Liteide version"
-	strChecksumMismatch          string = "Checksum missmatch"
+	strChecksumMismatch          string = "Checksum mismatch"
 )
