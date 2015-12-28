@@ -3,13 +3,14 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/badgerodon/penv"
 	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/badgerodon/penv"
 )
 
 type latest struct {
@@ -176,6 +177,7 @@ func refreshDb() {
 }
 
 func firstStart() {
+	printBanner()
 	fmt.Printf(strFirstStart)
 	fmt.Printf(strCreateWorkDirs)
 	createWorkDirs()
@@ -263,24 +265,29 @@ func getLatest(t, ver, qt string) latest {
 		}
 	} else if t == "liteide" {
 		if ver != "" {
-			qt = "*"
+			qt = "%"
 			stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer=?")
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else if qt != "" {
-			stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer=?")
+			stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer like ?")
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
-		stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer=?")
+		stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer like ?")
 		if err != nil {
 			log.Fatal(err)
 		}
 		err = stmt.QueryRow(curOS, curArch, ver, qt).Scan(&verurl.ver, &verurl.url, &verurl.fileName, &verurl.osPlatform, &verurl.osArch)
 		if err != nil {
-			log.Fatal(err)
+			if err.Error() == "sql: no rows in result set" {
+				fmt.Println("Unknown version")
+				os.Exit(0)
+			} else {
+				log.Fatal(err)
+			}
 		}
 	}
 	return verurl
