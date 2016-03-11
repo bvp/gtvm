@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/badgerodon/penv"
 )
@@ -19,6 +20,11 @@ type latest struct {
 	fileName   string
 	osPlatform string
 	osArch     string
+}
+
+type installed struct {
+	gtver goVer
+	date  time.Time
 }
 
 func removeDuplicates(xs *[]string) {
@@ -64,8 +70,14 @@ func printVersions(t string) {
 	rows.Close()
 
 	fmt.Println(msg)
+	instVers := getInstalled(t)
 	for _, v := range vers {
-		fmt.Printf("- %s\n", v)
+		if contains(instVers, v) {
+			fmt.Printf("- %-10s[installed]\n", v)
+		} else {
+			fmt.Printf("- %s\n", v)
+		}
+
 	}
 }
 
@@ -112,31 +124,33 @@ func checkErr(msg string, err error) {
 	}
 }
 
-func contains(slice []string, item string) bool {
-	set := make(map[string]struct{}, len(slice))
-	for _, s := range slice {
-		set[s] = struct{}{}
+func contains(slice []installed, item string) bool {
+	ok := false
+	for _, e := range slice {
+		if e.gtver.ver == item && e.gtver.osPlatform == runtime.GOOS && e.gtver.osArch == runtime.GOARCH {
+			ok = true
+		}
 	}
-
-	_, ok := set[item]
 	return ok
 }
 
-func listArchives() {
+func getArchives() []string {
+	var sArchives []string
 	fmt.Println(strArchivesListing)
 	files, _ := ioutil.ReadDir(archivesDir)
 	for _, f := range files {
+		sArchives = append(sArchives, f.Name())
 		fmt.Println(f.Name())
 	}
+	return sArchives
 }
 
-func listInstalled(gt string) []string {
+func getInstalled(gt string) []installed {
 	var (
 		inDir      string
-		sInstalled []string
+		sInstalled []installed
 	)
 
-	fmt.Printf(strInstalledVersions, gt)
 	if gt == "go" {
 		inDir = golangDir
 	} else if gt == "liteide" {
@@ -147,11 +161,17 @@ func listInstalled(gt string) []string {
 		fi, err := os.Stat(inDir + ps + f.Name())
 		checkErr("Getting os.Stat", err)
 		if fi.IsDir() {
-			fmt.Printf("\t%s (%s)\n", f.Name(), f.ModTime().Format("2006-01-02 15:04:05"))
-			sInstalled = append(sInstalled, f.Name())
+			sInstalled = append(sInstalled, installed{goVer{ver: f.Name(), osPlatform: runtime.GOOS, osArch: runtime.GOARCH}, f.ModTime()})
 		}
 	}
 	return sInstalled
+}
+
+func printInstalled(slice []installed, gt string) {
+	fmt.Printf(strInstalledVersions, gt)
+	for _, e := range slice {
+		fmt.Printf("- %-10s (%s)\n", e.gtver.ver, e.date.Format("2006-01-02 15:04:05"))
+	}
 }
 
 func refreshDb() {
@@ -199,7 +219,7 @@ func printBanner() {
 	fmt.Printf("Command line tool for manage Golang & LiteIDE versions\n\n")
 }
 
-func compareHash(ver, hash string) bool {
+func compareHash(ver string, hash []string) bool {
 	re := regexp.MustCompile("[^0-9]")
 
 	curOS := runtime.GOOS
@@ -207,16 +227,18 @@ func compareHash(ver, hash string) bool {
 
 	var mhash string
 	var result bool
-	stmt, _ := db.Prepare("select hash from golangCache where osPlatform = ? and osArch = ?")
+	stmt, _ := db.Prepare("select hash from golangCache where ver = ? and osPlatform = ? and osArch = ?")
 	defer stmt.Close()
-	err = stmt.QueryRow(curOS, curArch).Scan(&mhash)
-	fmt.Println("* mhash - '" + mhash + "' and hash - '" + hash + "'")
+	err = stmt.QueryRow(ver, curOS, curArch).Scan(&mhash)
 	if mhash != "" {
-		if strings.EqualFold(hash, mhash) {
-			result = true
-		} else {
-			fmt.Println("\n" + strChecksumMismatch)
-			result = false
+		for _, h := range hash {
+			fmt.Printf("* calculated hash - %s (%d), hash from db - %s (%d)\n", h, len(h), mhash, len(mhash))
+			if strings.EqualFold(h, mhash) {
+				result = true
+                break
+			} else {
+				result = false
+			}
 		}
 	} else {
 		result = true
@@ -294,16 +316,25 @@ func getLatest(t, ver, qt string) latest {
 }
 
 func setGoRoot(goRoot string) {
-	if contains(listInstalled("go"), goRoot) {
+	if contains(getInstalled("go"), goRoot) {
 		err := penv.SetEnv("GOROOT", golangDir+ps+goRoot)
 		checkErr("setGoRoot", err)
 	} else {
 		gtver := getLatest("go", goRoot, "")
-		download("golang", gtver.url, gtver.fileName)
-		// compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
-		fmt.Printf(strInstallGoVersion, goRoot)
-		extract(gtver.fileName, gtver.ver)
-		err := penv.SetEnv("GOROOT", golangDir+ps+goRoot)
-		checkErr("setGoRoot", err)
+		download("go", gtver.ver, gtver.url, gtver.fileName)
+		if compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName)) {
+			fmt.Printf(strInstallGoVersion, goRoot)
+			extract(gtver.fileName, gtver.ver)
+			err := penv.SetEnv("GOROOT", golangDir+ps+goRoot)
+			checkErr("setGoRoot", err)
+		} else {
+			fmt.Println(strChecksumMismatch)
+		}
 	}
+}
+
+func removeFile(f string) {
+	err := os.Remove(f)
+	checkErr("Remove file", err)
+	fmt.Println(strFileRemoved)
 }

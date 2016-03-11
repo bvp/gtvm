@@ -2,21 +2,24 @@ package main
 
 import (
 	"fmt"
-	"github.com/cheggaaa/pb"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/cheggaaa/pb"
 )
 
-func download(gt, url, outDir string) {
+func download(gt, ver, url, outDir string) {
 	sourceName, destName := url, archivesDir+ps+outDir
 	if _, err := os.Stat(destName); err == nil {
-		fmt.Println("Already downloaded...")
-		if gt == "golang" {
-			if compareHash("1.5", checksum(destName)) {
+		fmt.Println(strAlreadyDownloaded)
+		if gt == "go" {
+			if compareHash(ver, checksum(destName)) {
 				return
+			} else {
+				fmt.Println(strFilesMismatch)
 			}
 		}
 		return

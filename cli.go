@@ -18,13 +18,13 @@ func parseCmdLine() {
 		case "installed":
 			if len(args) > 1 {
 				if args[1] == "go" {
-					listInstalled("go")
+					printInstalled(getInstalled("go"), args[1])
 				} else if args[1] == "liteide" {
-					listInstalled("liteide")
+					printInstalled(getInstalled("liteide"), args[1])
 				}
 			} else {
-				listInstalled("go")
-				listInstalled("liteide")
+				printInstalled(getInstalled("go"), "go")
+				printInstalled(getInstalled("liteide"), "liteide")
 			}
 		case "ls":
 			if len(args) > 1 {
@@ -47,8 +47,10 @@ func parseCmdLine() {
 						gtver = getLatest("go", "", "")
 						fmt.Printf(strDownloadingGo, gtver.ver)
 					}
-					download("golang", gtver.url, gtver.fileName)
-					// compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
+					download("go", gtver.ver, gtver.url, gtver.fileName)
+					if !compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName)) {
+						removeFile(archivesDir + ps + gtver.fileName)
+					}
 				} else if args[1] == "liteide" {
 					if len(args) >= 3 {
 						fmt.Printf(strDownloadingLiteIDE, args[2])
@@ -61,7 +63,7 @@ func parseCmdLine() {
 						gtver = getLatest("liteide", "", "")
 					}
 					fmt.Printf(strDownloading, gtver.ver)
-					download("liteide", gtver.url, gtver.fileName)
+					download("liteide", gtver.ver, gtver.url, gtver.fileName)
 				} else {
 					usage()
 				}
@@ -79,9 +81,13 @@ func parseCmdLine() {
 						gtver = getLatest("go", "", "")
 					}
 					fmt.Printf(strDownloadingGo, gtver.ver)
-					download("golang", gtver.url, gtver.fileName)
-					// compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName))
-					extract(gtver.fileName, gtver.ver)
+					download("go", gtver.ver, gtver.url, gtver.fileName)
+					if compareHash(gtver.ver, checksum(archivesDir+ps+gtver.fileName)) {
+						extract(gtver.fileName, gtver.ver)
+					} else {
+						fmt.Printf("%s. %s\n", strChecksumMismatch, strOperationAborted)
+						removeFile(archivesDir + ps + gtver.fileName)
+					}
 				} else if args[1] == "liteide" {
 					if len(args) >= 3 {
 						fmt.Printf(strDownloadingLiteIDE, args[2])
@@ -94,7 +100,7 @@ func parseCmdLine() {
 						gtver = getLatest("liteide", "", "")
 					}
 					fmt.Printf(strDownloadingInstalling, gtver.ver)
-					download("liteide", gtver.url, gtver.fileName)
+					download("liteide", gtver.ver, gtver.url, gtver.fileName)
 					extract(gtver.fileName, gtver.ver)
 				} else {
 					usage()
@@ -130,7 +136,7 @@ func parseCmdLine() {
 				}
 			}
 		case "archives":
-			listArchives()
+			getArchives()
 		case "upgrade":
 			usage()
 		case "config":

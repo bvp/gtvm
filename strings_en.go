@@ -20,4 +20,8 @@ const (
 	strUninstallGo               string = "Uninstall Golang version"
 	strUninstallLiteIDE          string = "Uninstall Liteide version"
 	strChecksumMismatch          string = "Checksum mismatch"
+	strOperationAborted          string = "Operation aborted"
+	strAlreadyDownloaded         string = "Already downloaded..."
+	strFilesMismatch             string = "Files mismatch"
+	strFileRemoved               string = "File removed"
 )
