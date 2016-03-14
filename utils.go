@@ -235,7 +235,7 @@ func compareHash(ver string, hash []string) bool {
 			fmt.Printf("* calculated hash - %s (%d), hash from db - %s (%d)\n", h, len(h), mhash, len(mhash))
 			if strings.EqualFold(h, mhash) {
 				result = true
-                break
+				break
 			} else {
 				result = false
 			}
@@ -271,7 +271,7 @@ func getLatest(t, ver, qt string) latest {
 				}
 			}
 		} else {
-			stmt, err = db.Prepare("SELECT ver, url, fileName, osPlatform, osArch FROM golangCache WHERE osPlatform = ? AND osArch = ?  LIMIT 1")
+			stmt, err = db.Prepare("SELECT ver, url, fileName, osPlatform, osArch FROM golangCache WHERE osPlatform = ? AND osArch = ? LIMIT 1")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -286,23 +286,21 @@ func getLatest(t, ver, qt string) latest {
 			}
 		}
 	} else if t == "liteide" {
-		if ver != "" {
+		if curOS == "windows" {
 			qt = "%"
-			stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer=?")
-			if err != nil {
-				log.Fatal(err)
+			curArch = "%"
+			if ver == "" {
+				ver = "%"
 			}
-		} else if qt != "" {
-			stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer like ?")
-			if err != nil {
-				log.Fatal(err)
-			}
+		} else if ver != "" {
+			qt = "%"
 		}
-		stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch = ? and ver = ? and qtVer like ?")
+		stmt, err = db.Prepare("select ver, url, fileName, osPlatform, osArch from liteideCache where osPlatform = ? and osArch like ? and ver like ? and qtVer like ? LIMIT 1")
 		if err != nil {
 			log.Fatal(err)
 		}
 		err = stmt.QueryRow(curOS, curArch, ver, qt).Scan(&verurl.ver, &verurl.url, &verurl.fileName, &verurl.osPlatform, &verurl.osArch)
+		// fmt.Printf("curOS = %s, curArch = %s, ver = %s, qt = %s\n", curOS, curArch, ver, qt)
 		if err != nil {
 			if err.Error() == "sql: no rows in result set" {
 				fmt.Println("Unknown version")
